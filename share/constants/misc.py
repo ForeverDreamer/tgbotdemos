@@ -17,6 +17,7 @@ BOT_TOKENS = secret['bot_tokens']
 #     k, v = token.split('')
 #     BOT_TOKENS.append((k, v))
 #     BOT_TOKENS_DIC[k] = v
+APPS = secret['apps']
 
 ETHERSCAN_API_KEY = secret['etherscan_api_key']
 

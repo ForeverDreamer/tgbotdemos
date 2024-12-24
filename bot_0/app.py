@@ -27,7 +27,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Group buttons into rows of 2
     keyboard = [
         [
-            InlineKeyboardButton(token[0], url=f't.me/{token[0]}', callback_data=token[0])
+            InlineKeyboardButton(f"\U0001F916{token[0]}", url=f't.me/{token[0]}', callback_data=token[0])
             for token in BOT_TOKENS[i:i+2]
         ]
         for i in range(1, len(BOT_TOKENS)-1, 2)  # Step by 2 to create rows

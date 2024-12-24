@@ -172,3 +172,5 @@ cython_debug/
 
 # 本地文件
 share/secret.json
+*.session
+*/user_backup.json
