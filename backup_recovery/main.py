@@ -7,7 +7,7 @@ from telethon.errors import FloodWaitError
 
 from share.constants.misc import APPS
 
-app_info = APPS[2]
+app_info = APPS[0]
 # 配置文件
 API_ID = app_info[0]  # 在 my.telegram.org 获取
 API_HASH = app_info[1]  # 在 my.telegram.org 获取
@@ -18,9 +18,13 @@ BACKUP_FILE = "backup.json"
 client = TelegramClient(SESSION_NAME, API_ID, API_HASH)
 
 
-async def backup_user_data():
+async def backup_user_data(log_file="channel_backup_log.json"):
     """备份用户的联系人、群组和频道信息，避免重复记录"""
     print("正在备份联系人、用户、群组和频道数据...")
+
+    # 初始化日志
+    log_data = {"contacts": [], "users": [], "groups": [], "channels": []}
+
     # 加载已有备份数据（如果存在）
     if os.path.exists(BACKUP_FILE):
         with open(BACKUP_FILE, "r", encoding="utf-8") as file:
@@ -44,30 +48,38 @@ async def backup_user_data():
     print('===============备份联系人===============')
     for user in contacts.users:
         if user.id not in existing_contacts:
-            backup["contacts"].append({
+            contact_info = {
                 "id": user.id,
                 "username": user.username,
                 "first_name": user.first_name,
                 "last_name": user.last_name,
                 "phone": user.phone
-            })
+            }
+            backup["contacts"].append(contact_info)
             existing_contacts.add(user.id)
+            log_data["contacts"].append({"action": "added", "data": contact_info})
             print(f"联系人: {user.id}，{user.username}，{user.first_name}，{user.phone}")
+        else:
+            log_data["contacts"].append({"action": "skipped", "id": user.id})
 
     print('===============私聊/群组/频道===============')
     # 获取所有对话，包括联系人、群组和频道
     async for dialog in client.iter_dialogs():
         if isinstance(dialog.entity, types.User):  # 判断是否为联系人
             if dialog.id not in existing_users:
-                backup["users"].append({
+                user_info = {
                     "id": dialog.id,
                     "username": dialog.entity.username,
                     "first_name": dialog.entity.first_name,
                     "last_name": dialog.entity.last_name,
                     "phone": getattr(dialog.entity, "phone", None)
-                })
+                }
+                backup["users"].append(user_info)
                 existing_users.add(dialog.id)
+                log_data["users"].append({"action": "added", "data": user_info})
                 print(f"私聊: {dialog.id}, {dialog.entity.username},  {dialog.entity.first_name},  {dialog.entity.last_name}")
+            else:
+                log_data["users"].append({"action": "skipped", "id": dialog.id})
         elif isinstance(dialog.entity, types.Chat):  # 判断是否为普通群组
             if dialog.id not in existing_groups:
                 group_info = {
@@ -77,31 +89,119 @@ async def backup_user_data():
                 }
                 backup["groups"].append(group_info)
                 existing_groups.add(dialog.id)
+                log_data["groups"].append({"action": "added", "data": group_info})
                 print(f"群组: {dialog.name}")
+            else:
+                log_data["groups"].append({"action": "skipped", "id": dialog.id})
         elif isinstance(dialog.entity, types.Channel):  # 判断是否为频道或超级群组
             if dialog.id not in existing_channels:
                 channel_info = {
                     "id": dialog.id,
                     "title": dialog.name,
-                    "username": None
+                    "username": getattr(dialog.entity, "username", None)
                 }
-                # 检查是否有公开的 username 或 usernames 字段
-                username = getattr(dialog.entity, "username", None)
-                usernames = getattr(dialog.entity, "usernames", [])
-                if username:
-                    channel_info["username"] = username
-                elif usernames:
-                    # 使用 usernames 字段的第一个用户名
-                    channel_info["username"] = usernames[0].username
                 backup["channels"].append(channel_info)
                 existing_channels.add(dialog.id)
+                log_data["channels"].append({"action": "added", "data": channel_info})
                 print(f"频道: {dialog.name}")
+            else:
+                log_data["channels"].append({"action": "skipped", "id": dialog.id})
 
-    # 保存到文件
+    # 保存到备份文件
     with open(BACKUP_FILE, "w", encoding="utf-8") as file:
         json.dump(backup, file, ensure_ascii=False, indent=4)
 
-    print("===备份成功！数据已保存到本地文件===")
+    # 保存日志到文件
+    with open(log_file, "w", encoding="utf-8") as log_file:
+        json.dump(log_data, log_file, ensure_ascii=False, indent=4)
+
+    print("===备份成功！数据和日志已保存到本地文件===")
+
+
+# async def backup_user_data():
+#     """备份用户的联系人、群组和频道信息，避免重复记录"""
+#     print("正在备份联系人、用户、群组和频道数据...")
+#     # 加载已有备份数据（如果存在）
+#     if os.path.exists(BACKUP_FILE):
+#         with open(BACKUP_FILE, "r", encoding="utf-8") as file:
+#             backup = json.load(file)
+#     else:
+#         backup = {
+#             "contacts": [],
+#             "users": [],
+#             "groups": [],
+#             "channels": []
+#         }
+#
+#     # 将现有数据转换为集合，用于去重
+#     existing_contacts = {contact["id"] for contact in backup["contacts"]}
+#     existing_users = {user["id"] for user in backup["users"]}
+#     existing_groups = {group["id"] for group in backup["groups"]}
+#     existing_channels = {channel["id"] for channel in backup["channels"]}
+#
+#     # 获取所有联系人
+#     contacts = await client(functions.contacts.GetContactsRequest(hash=0))
+#     print('===============备份联系人===============')
+#     for user in contacts.users:
+#         if user.id not in existing_contacts:
+#             backup["contacts"].append({
+#                 "id": user.id,
+#                 "username": user.username,
+#                 "first_name": user.first_name,
+#                 "last_name": user.last_name,
+#                 "phone": user.phone
+#             })
+#             existing_contacts.add(user.id)
+#             print(f"联系人: {user.id}，{user.username}，{user.first_name}，{user.phone}")
+#
+#     print('===============私聊/群组/频道===============')
+#     # 获取所有对话，包括联系人、群组和频道
+#     async for dialog in client.iter_dialogs():
+#         if isinstance(dialog.entity, types.User):  # 判断是否为联系人
+#             if dialog.id not in existing_users:
+#                 backup["users"].append({
+#                     "id": dialog.id,
+#                     "username": dialog.entity.username,
+#                     "first_name": dialog.entity.first_name,
+#                     "last_name": dialog.entity.last_name,
+#                     "phone": getattr(dialog.entity, "phone", None)
+#                 })
+#                 existing_users.add(dialog.id)
+#                 print(f"私聊: {dialog.id}, {dialog.entity.username},  {dialog.entity.first_name},  {dialog.entity.last_name}")
+#         elif isinstance(dialog.entity, types.Chat):  # 判断是否为普通群组
+#             if dialog.id not in existing_groups:
+#                 group_info = {
+#                     "id": dialog.id,
+#                     "title": dialog.name,
+#                     "username": getattr(dialog.entity, "username", None)
+#                 }
+#                 backup["groups"].append(group_info)
+#                 existing_groups.add(dialog.id)
+#                 print(f"群组: {dialog.name}")
+#         elif isinstance(dialog.entity, types.Channel):  # 判断是否为频道或超级群组
+#             if dialog.id not in existing_channels:
+#                 channel_info = {
+#                     "id": dialog.id,
+#                     "title": dialog.name,
+#                     "username": None
+#                 }
+#                 # 检查是否有公开的 username 或 usernames 字段
+#                 username = getattr(dialog.entity, "username", None)
+#                 usernames = getattr(dialog.entity, "usernames", [])
+#                 if username:
+#                     channel_info["username"] = username
+#                 elif usernames:
+#                     # 使用 usernames 字段的第一个用户名
+#                     channel_info["username"] = usernames[0].username
+#                 backup["channels"].append(channel_info)
+#                 existing_channels.add(dialog.id)
+#                 print(f"频道: {dialog.name}")
+#
+#     # 保存到文件
+#     with open(BACKUP_FILE, "w", encoding="utf-8") as file:
+#         json.dump(backup, file, ensure_ascii=False, indent=4)
+#
+#     print("===备份成功！数据已保存到本地文件===")
 
 
 # 批量检测是否已经加入频道
