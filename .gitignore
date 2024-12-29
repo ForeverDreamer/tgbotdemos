@@ -174,4 +174,4 @@ cython_debug/
 share/secret.json
 *.session
 *.session-journal
-*/user_backup.json
+*/backup.json
