@@ -175,3 +175,4 @@ share/secret.json
 *.session
 *.session-journal
 */backup.json
+*log.json

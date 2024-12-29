@@ -1,0 +1,114 @@
+services:
+  mongo1:
+    image: mongo:7.0
+    restart: unless-stopped
+    ports:
+      - "${MONGO1_PORT}:${MONGO1_PORT}"
+    volumes:
+      - "${MONGO_DIR}/${MONGO1_HOST}:/data/db"
+      - "${MONGO_KEYFILE}:/etc/mongodb/pki/keyfile"
+      - "${PWD}/entrypoint.sh:/docker-entrypoint-initdb.d/entrypoint.sh"  # 挂载自定义 entrypoint
+      - ./logs:/var/log  # 挂载日志目录到宿主机
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    entrypoint: [ "/bin/bash", "/docker-entrypoint-initdb.d/entrypoint.sh" ]  # 使用自定义 entrypoint
+    networks:
+      db:
+        aliases:
+          - mongo1
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mongo2:
+    image: mongo:7.0
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "${MONGO2_PORT}", "--keyFile", "/etc/mongodb/pki/keyfile", "--auth" ]
+    restart: unless-stopped
+    ports:
+      - "${MONGO2_PORT}:${MONGO2_PORT}"
+    volumes:
+      - "${MONGO_DIR}/${MONGO2_HOST}:/data/db"
+      - "${MONGO_KEYFILE}:/etc/mongodb/pki/keyfile"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      db:
+        aliases:
+          - "${MONGO2_HOST}"
+    depends_on:
+      - "${MONGO1_HOST}"  # 仅依赖于 mongo1
+    healthcheck:
+      test: [ "CMD", "mongosh", "--host", "${MONGO2_HOST}", "--port", "${MONGO2_PORT}", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mongo3:
+    image: mongo:7.0
+    command: [ "--replSet", "rs0", "--bind_ip_all", "--port", "${MONGO3_PORT}", "--keyFile", "/etc/mongodb/pki/keyfile", "--auth" ]
+    restart: unless-stopped
+    ports:
+      - "${MONGO3_PORT}:${MONGO3_PORT}"
+    volumes:
+      - "${MONGO_HOST_DB_PATH}/${MONGO3_HOST}:/data/db"
+      - "${MONGO_KEYFILE}:/etc/mongodb/pki/keyfile"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    networks:
+      db:
+        aliases:
+          - "${MONGO3_HOST}"
+    depends_on:
+      - "${MONGO1_HOST}"  # 仅依赖于 mongo1
+    healthcheck:
+      test: [ "CMD", "mongosh", "--host", "${MONGO3_HOST}", "--port", "${MONGO3_PORT}", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  redis:
+    image: "redis/redis-stack-server:7.2.0-v13"
+    restart: unless-stopped
+    volumes:
+      - "${REDIS_DIR}:/data "                           # 持久化数据目录
+      - "./redis.conf:/usr/local/etc/redis/redis.conf"  # 自定义配置文件
+    ports:
+      - "${REDIS_PORT}:${REDIS_PORT}"
+    environment:
+      - "LD_LIBRARY_PATH=/opt/redis-stack/lib"
+      - "REDIS_PASSWORD=${REDIS_PASSWORD}"           # 设置 Redis 密码
+    command: [ "redis-server", "/usr/local/etc/redis/redis.conf", "--requirepass", "$$REDIS_PASSWORD" ] # 使用密码
+    networks:
+      db:
+        aliases:
+          - redis
+
+  rabbitmq:
+    image: rabbitmq:3.10.7-management
+    restart: unless-stopped
+    ports:
+      - "${RABBITMQ_PORT}:${RABBITMQ_PORT}"                                   # AMQP protocol
+      - "1${RABBITMQ_PORT}:1${RABBITMQ_PORT}"                                 # Management UI
+    environment:
+      - "RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER}"     # 设置 RabbitMQ 用户名
+      - "RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS}"     # 设置 RabbitMQ 密码
+    networks:
+      db:
+        aliases:
+          - rabbitmq
+
+networks:
+  db:
