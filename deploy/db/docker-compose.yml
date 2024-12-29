@@ -7,8 +7,8 @@ services:
     volumes:
       - "${MONGO_DIR}/${MONGO1_HOST}:/data/db"
       - "${MONGO_KEYFILE}:/etc/mongodb/pki/keyfile"
-      - "${PWD}/entrypoint.sh:/docker-entrypoint-initdb.d/entrypoint.sh"  # 挂载自定义 entrypoint
-      - ./logs:/var/log  # 挂载日志目录到宿主机
+      - "./entrypoint.sh:/docker-entrypoint-initdb.d/entrypoint.sh"  # 挂载自定义 entrypoint
+      - "./logs:/var/log"  # 挂载日志目录到宿主机
     logging:
       driver: "json-file"
       options:
@@ -17,13 +17,19 @@ services:
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO1_HOST: ${MONGO1_HOST}
+      MONGO1_PORT: ${MONGO1_PORT}
+      MONGO2_HOST: ${MONGO2_HOST}
+      MONGO2_PORT: ${MONGO2_PORT}
+      MONGO3_HOST: ${MONGO3_HOST}
+      MONGO3_PORT: ${MONGO3_PORT}
     entrypoint: [ "/bin/bash", "/docker-entrypoint-initdb.d/entrypoint.sh" ]  # 使用自定义 entrypoint
     networks:
       db:
         aliases:
-          - mongo1
+          - "${MONGO1_HOST}"
     healthcheck:
-      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      test: [ "CMD", "mongosh", "--host", "${MONGO1_HOST}", "--port", "${MONGO1_PORT}",  "--eval", "db.adminCommand('ping')" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -61,7 +67,7 @@ services:
     ports:
       - "${MONGO3_PORT}:${MONGO3_PORT}"
     volumes:
-      - "${MONGO_HOST_DB_PATH}/${MONGO3_HOST}:/data/db"
+      - "${MONGO_DIR}/${MONGO3_HOST}:/data/db"
       - "${MONGO_KEYFILE}:/etc/mongodb/pki/keyfile"
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}

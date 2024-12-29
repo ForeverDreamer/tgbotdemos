@@ -15,15 +15,34 @@ log() {
     set -x  # 重新启用命令回显
 }
 
+get_env_value() {
+    local key=$1
+
+    # 检查 .env 文件是否存在
+    if [ ! -f ./.env ]; then
+        echo "错误：.env 文件不存在，请确保 .env 文件在当前目录中。" >&2
+        exit 1
+    fi
+
+    # 获取变量值
+    local value
+    value=$(grep -E "^${key}=" ./.env | cut -d '=' -f 2 | tr -d '\r')
+
+    # 检查变量是否存在
+    if [ -z "$value" ]; then
+        echo "错误：未在 .env 文件中找到变量 ${key} 或其值为空。" >&2
+        exit 1
+    fi
+
+    echo "$value"
+}
+
 # 检查并设置 Redis 数据目录
 setup_redis_directory() {
-    # 如果 .env 文件不存在，直接退出
-    [ -f "./.env" ] || { echo "错误：.env 文件不存在，请创建 .env 文件" >&2; exit 1; }
-    # 从 .env 文件中读取 redis_dir 的值
+
+    # 从 .env 文件中读取 REDIS_DIR 的值
     local redis_dir
-    redis_dir=$(grep -E '^REDIS_DIR=' ./.env | cut -d '=' -f 2)
-    # 检查 redis_dir 是否为空
-    [ -n "$redis_dir" ] || { echo "错误：.env 文件中未找到 redis_dir 的值。" >&2; exit 1; }
+    redis_dir=$(get_env_value "REDIS_DIR")
 
     if [ ! -d "$redis_dir" ]; then
         mkdir -p "$redis_dir"
@@ -37,13 +56,8 @@ setup_redis_directory() {
 
 # 检查并生成密钥文件
 setup_keyfile() {
-    # 如果 .env 文件不存在，直接退出
-    [ -f "./.env" ] || { echo "错误：.env 文件不存在，请创建 .env 文件" >&2; exit 1; }
-    # 从 .env 文件中读取 mongo_keyfile 的值
     local mongo_keyfile
-    mongo_keyfile=$(grep -E '^MONGO_KEYFILE=' ./.env | cut -d '=' -f 2)
-    # 检查 mongo_keyfile 是否为空
-    [ -n "$mongo_keyfile" ] || { echo "错误：.env 文件中未找到 MONGO_KEYFILE 的值。" >&2; exit 1; }
+    mongo_keyfile=$(get_env_value "MONGO_KEYFILE")
 
     local keyfile_dir
     keyfile_dir=$(dirname "$mongo_keyfile")
