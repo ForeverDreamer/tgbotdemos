@@ -22,3 +22,6 @@ tcp: 27017-27019
 tcp: 6379
 tcp: 5672
 tcp: 15672
+
+# 7.redis
+username: default

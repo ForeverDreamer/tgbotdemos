@@ -287,41 +287,44 @@ async def restore_user_data():
     with open(BACKUP_FILE, "r", encoding="utf-8") as file:
         backup = json.load(file)
 
+    # 群组、频道、私聊大概率不需要批量自动恢复，需要时手动添加就行了，一些频道和群组还有防机器人验证，超时不回答还会被封禁
+    # 但做视频时可以演示一下功能，说不定由客户需要这样的功能
+
     # 单向添加联系人
-    # for contact in backup["contacts"]:
-    #     username = contact["username"]
-    #     user_id = contact["id"]
-    #     first_name = contact["first_name"]
-    #     last_name = contact["last_name"]
-    #     try:
-    #         # 如果提供了 username，则通过 username 获取实体
-    #         if username:
-    #             user_entity = await client.get_entity(username)
-    #         elif user_id:
-    #             # 如果提供了 user_id，则直接获取实体
-    #             user_entity = await client.get_entity(user_id)
-    #         else:
-    #             print("需要提供 username 或 user_id 才能添加联系人。")
-    #             return
-    #
-    #         # 确保实体是有效的用户
-    #         if not isinstance(user_entity, types.User):
-    #             print(f"目标 {username or user_id} 不是有效的用户实体，无法添加为联系人。")
-    #             return
-    #
-    #         # 添加联系人，不分享电话号码
-    #         await client(functions.contacts.AddContactRequest(
-    #             id=user_id,
-    #             first_name=first_name or "",  # 获取用户的名字或备用名字
-    #             last_name=last_name or "",  # 获取用户的姓氏或备用姓氏
-    #             phone="",  # 不需要提供电话号码
-    #             add_phone_privacy_exception=False  # 不分享你的电话号码
-    #         ))
-    #         print(
-    #             f"成功添加联系人：{first_name} {last_name} ({username or user_id})")
-    #
-    #     except Exception as e:
-    #         print(f"无法添加联系人 {username or user_id}: {e}")
+    for contact in backup["contacts"]:
+        username = contact["username"]
+        user_id = contact["id"]
+        first_name = contact["first_name"]
+        last_name = contact["last_name"]
+        try:
+            # 如果提供了 username，则通过 username 获取实体
+            if username:
+                user_entity = await client.get_entity(username)
+            elif user_id:
+                # 如果提供了 user_id，则直接获取实体
+                user_entity = await client.get_entity(user_id)
+            else:
+                print("需要提供 username 或 user_id 才能添加联系人。")
+                return
+
+            # 确保实体是有效的用户
+            if not isinstance(user_entity, types.User):
+                print(f"目标 {username or user_id} 不是有效的用户实体，无法添加为联系人。")
+                return
+
+            # 添加联系人，不分享电话号码
+            await client(functions.contacts.AddContactRequest(
+                id=user_id,
+                first_name=first_name or "",  # 获取用户的名字或备用名字
+                last_name=last_name or "",  # 获取用户的姓氏或备用姓氏
+                phone="",  # 不需要提供电话号码
+                add_phone_privacy_exception=False  # 不分享你的电话号码
+            ))
+            print(
+                f"成功添加联系人：{first_name} {last_name} ({username or user_id})")
+
+        except Exception as e:
+            print(f"无法添加联系人 {username or user_id}: {e}")
 
     # # 恢复用户（非直接联系人但有记录）
     # for user in backup["users"]:
@@ -365,7 +368,7 @@ async def restore_user_data():
     #         print(f"无法加入群组 {group['title']}: {e}")
 
     # 恢复频道
-    await _restore_channels(backup)
+    # await _restore_channels(backup)
 
     print("恢复完成！")
 
